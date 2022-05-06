@@ -38,7 +38,7 @@ namespace WebApi
                 options.AddPolicy(CorsOrigins,
                                   builder =>
                                   {
-                                      builder.WithOrigins("https://test-111.xyz", "http://localhost:4200")/**/
+                                      builder.WithOrigins("https://ticket-system.xyz")/*, "http://localhost:4200"*/
                                         .WithHeaders("Access-Control-Allow-Headers", "Access-Control-Allow-Origin", "Content-Type", "Authorization")
                                       .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
                                   });
