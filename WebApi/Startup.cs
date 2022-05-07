@@ -21,11 +21,12 @@ namespace WebApi
 {
     public class Startup
     {
-        public Startup(IConfiguration configuration)
+        public Startup(IConfiguration configuration, IWebHostEnvironment env)
         {
             Configuration = configuration;
+            Env = env;
         }
-
+        public IWebHostEnvironment Env;
         public IConfiguration Configuration { get; }
         readonly string CorsOrigins = "origins";
 
@@ -38,9 +39,19 @@ namespace WebApi
                 options.AddPolicy(CorsOrigins,
                                   builder =>
                                   {
-                                      builder.WithOrigins("https://ticket-system.xyz")/*, "http://localhost:4200"*/
-                                        .WithHeaders("Access-Control-Allow-Headers", "Access-Control-Allow-Origin", "Content-Type", "Authorization")
-                                      .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
+
+                                      if (Env.IsDevelopment())
+                                      {
+                                          builder.WithOrigins("http://localhost:4200")
+                                             .WithHeaders("Access-Control-Allow-Headers", "Access-Control-Allow-Origin", "Content-Type", "Authorization")
+                                            .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
+                                      }
+                                      else
+                                      {
+                                          builder.WithOrigins("https://ticket-system.xyz")
+                                             .WithHeaders("Access-Control-Allow-Headers", "Access-Control-Allow-Origin", "Content-Type", "Authorization")
+                                            .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
+                                      }
                                   });
             });
 
@@ -115,9 +126,9 @@ namespace WebApi
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        public void Configure(IApplicationBuilder app)
         {
-            if (env.IsDevelopment())
+            if (Env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
             }
@@ -125,7 +136,7 @@ namespace WebApi
             app.UseHttpsRedirection();
 
             app.UseRouting();
-            if (env.IsProduction())
+            if (Env.IsProduction())
             {
                 app.UseMiddleware<BlockNonBrowserRequestsMiddlware>();
             }
