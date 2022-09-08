@@ -1,8 +1,7 @@
 ﻿using Dal;
 using Entities;
-using Entities.configutation;
 using Microsoft.AspNetCore.Identity;
-using services.Enums;
+using Newtonsoft.Json.Linq;
 using Services.Models;
 using Services.Models.Auth;
 using Services.Models.Customers;
@@ -105,7 +104,15 @@ namespace Services
             });
             return vmList;
         }
-        public static List<BaseUserVM> ConvertIdentityUserListToBaseUserVMList(this List<IdentityUser> identityList)
+        public static IEnumerable<Employee> ConvertIdentityUserListToEmployeesArray(this IList<IdentityUser> identityList, GenericRepository<Employee> _employeesrepository )
+        {
+            int listLength = identityList.Count();
+            for(int i = 0; i < listLength; i++)
+            {
+                yield return _employeesrepository.GetByID(identityList[i].Id);
+            }          
+        }
+        public static List<BaseUserVM> ConvertIdentityUserListToBaseUserVMList(this List<IdentityUser> identityList, int extraResults)
         {
             List<BaseUserVM> vmList = new();
             identityList.ForEach(i =>
@@ -116,8 +123,16 @@ namespace Services
                     Name = i.UserName
                 });
             });
+            if(extraResults > 0)
+            {
+                vmList.Add(new BaseUserVM()
+                {
+                    Name = $"And {extraResults} more results. refine your search."
+                });
+            }
             return vmList;
         }
+                            
 
         public static TicketResponse[] ConvertToTicketResponseArray(this IEnumerable<Ticket> tickets, GenericRepository<ReplyImage> replyImageRepository)
         {
@@ -153,12 +168,13 @@ namespace Services
             }
             return replies;
         }
-        static TicketResponse ConvertToTicketResponse(this Ticket t)
+        public static TicketResponse ConvertToTicketResponse(this Ticket t)
         {
             return new TicketResponse()
             {
                 ClosedByUser = t.ClosedByUser,
                 ClosingDate = t.ClosingDate,
+                //CustomerName = customerName,
                 CustomerId = t.CustomerId,
                 Category = t.Categoty,
                 Id = t.Id,
@@ -211,6 +227,7 @@ namespace Services
 
                 yield return new Error()
                 {
+                    Id = log.Id,
                     Date = log.Date,
                     ErrorDetails = log.Details,
                     UserName = userName
@@ -227,6 +244,7 @@ namespace Services
 
                 yield return new Auth()
                 {
+                     Id = log.Id,
                     Date = log.Date,
                     Details = log.Details,
                     UserName = userName,

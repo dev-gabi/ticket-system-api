@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace WebApi.Models
 {
-    public class StringIdModel
+    public class StatusModel
     {
-        [Required]
-        public string Id { get; set; }
+        [Required, MaxLength(10)]
+        public string Status { get; set; }
     }
 }

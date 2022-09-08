@@ -15,13 +15,13 @@ namespace Services
 {
     public interface IEmployeeService
     {
-        Task<List<BaseUserVM>> GetSupportersAsync();
-        EmployeeResponse GetEmployeeById(string id);
-        Task<List<BaseUserVM>> SearchUsers(TypeAheadSearchModel model);
-        EmployeeResponse EditEmployeeDetails(EmployeeEditVM vm);
+        EmployeeResponse[] GetSupporters(out string error);
+        EmployeeResponse GetEmployeeById(string id, out string error);
+        List<BaseUserVM> SearchUsers(TypeAheadSearchModel model, out string error);
+        EmployeeResponse EditEmployeeDetails(EmployeeEditVM vm, out string error);
         IEnumerable<SupporterStats> GetSupporterMontlyStats(SupporterStatsVM vm);
-        TopEmployeesPerformance GetTopFiveTicketClosingStats();
-        GeneralMonthlyStats GetGeneralMonthlyStats();
+        //TopEmployeesPerformance GetTopFiveTicketClosingStats(out string error);
+        GeneralMonthlyStats GetGeneralMonthlyStats(out string error);
     }
 
     public class EmployeeService : IEmployeeService
@@ -56,33 +56,56 @@ namespace Services
             userId = _userId;
         }
         /// <summary>
-        /// Gets Employee details with previous month stats
+        /// Gets Employee details with stats
         /// </summary>
         /// <param name="id">Employee's Id</param>
         /// <returns>EmployeeResponse Object</returns>
-        public EmployeeResponse GetEmployeeById(string id)
+        public EmployeeResponse GetEmployeeById(string id, out string error)
         {
             id = _sanitizer.SanitizeString(id);
             if (string.IsNullOrEmpty(id))
             {
                 _errorLogService.LogError("id is null", userId);
-                return new EmployeeResponse() { Error = "id is null" };
+                error = $"id is null";
+                return null;
             }
             try
             {
                 EmployeeResponse employee = EmployeesRepository.GetByID(id).ConvertToEmployeeResponse();
-                DateTime now = DateTime.Now;
-                employee.Stats = GetSupporterMontlyStats(new SupporterStatsVM() { Id = employee.Id, Date = now });
+                employee.Stats = GetSupporterMontlyStats(new SupporterStatsVM() { Id = employee.Id, Date = DateTime.Now });
+                error = string.Empty;
                 return employee;
             }
             catch (Exception x)
             {
                 _errorLogService.LogError($"UserService - GetEmployeeById {x.Message} {x.InnerException}", userId);
-                return new EmployeeResponse() { Error = "An error has occured while trying to get user" };
+                error = "An error has occured while trying to get user";
+                return null;
             }
-
         }
 
+        public EmployeeResponse[] GetSupporters(out string error)
+        {
+            try
+            {
+                IEnumerable<Employee> supporters = _userManager.GetUsersInRoleAsync(Roles.Supporter.ToString()).Result.ConvertIdentityUserListToEmployeesArray(EmployeesRepository);
+                List<EmployeeResponse> response = new ();
+
+                supporters.ToList().ForEach(s=> {
+                    response.Add(s.ConvertToEmployeeResponse());
+                });
+
+                response.ForEach(e => e.Stats = GetSupporterMontlyStats(new SupporterStatsVM() { Id = e.Id, Date = DateTime.Now }));
+                error = string.Empty;
+                return response.ToArray();
+            }
+            catch (Exception x)
+            {
+                _errorLogService.LogError($"UserService - SearchUsers {x.Message} {x.InnerException}", userId);
+                error = "An error has occured while trying to get users";
+                return null;
+            }
+        }
 
         private List<BaseUserVM> CheckIsActiveStatus(string role, List<BaseUserVM> users)
         {
@@ -90,7 +113,11 @@ namespace Services
             {
                 users.ForEach(u =>
                 {
-                    u.IsActive = CustomerRepository.GetByID(u.Id).IsActive;
+                    if (!string.IsNullOrEmpty(u.Id))
+                    {
+                        u.IsActive = CustomerRepository.GetByID(u.Id).IsActive;
+                    }
+                   
                 });
                 return users;
             }
@@ -109,25 +136,30 @@ namespace Services
             }
         }
 
-        public EmployeeResponse EditEmployeeDetails(EmployeeEditVM vm)
+        public EmployeeResponse EditEmployeeDetails(EmployeeEditVM vm, out string error)
         {
             if (vm == null) throw new ArgumentNullException("employee data is null");
             vm = _sanitizer.SanitizeEmploeeEditVM(vm);
             try
             {
                 Employee employeetoUpdate = EmployeesRepository.GetByID(vm.Id);
-                if(employeetoUpdate == null) { return new EmployeeResponse() { Error = "employee not found" }; }
+                if(employeetoUpdate == null) { error = "employee not found"; return null; }
                 employeetoUpdate.Email = vm.Email;
                 employeetoUpdate.IsActive = vm.IsActive;
                 employeetoUpdate.UserName = vm.Name;
                 EmployeesRepository.Update(employeetoUpdate);
                 EmployeesRepository.Save();
-                return employeetoUpdate.ConvertToEmployeeResponse();
+
+                EmployeeResponse res = employeetoUpdate.ConvertToEmployeeResponse();
+                res.Stats = GetSupporterMontlyStats(new SupporterStatsVM() { Id = res.Id, Date = DateTime.Now });
+                error = string.Empty;
+                return res;
             }
             catch (Exception x)
             {
                 _errorLogService.LogError($"UserService - EditEmployeeDetails {x.Message} {x.InnerException}", userId);
-                return new EmployeeResponse() { Error = "An error has occured while trying to edit employee" };
+                error = "An error has occured while trying to edit employee";
+                return null;
             }
         }
 
@@ -143,49 +175,49 @@ namespace Services
                    yield return new SupporterStats()
                     {
                         Date = date,
-                        Replies = RepliesRepository.Get(r => r.UserId == vm.Id && r.Date == date.Date).Count(),//todo: debug here
+                        Replies = RepliesRepository.Get(r => r.UserId == vm.Id && r.Date.Day == date.Day && r.Date.Month==date.Month && r.Date.Year == date.Year).Count(),//todo: debug here
                         TicketsClosed = TicketsRepository.Get(t => t.ClosedByUser == vm.Id && t.ClosingDate.Date == date.Date).Count()
                     };;
                 }
         }
 
-        public async Task<List<BaseUserVM>> SearchUsers(TypeAheadSearchModel model)
+        public  List<BaseUserVM> SearchUsers(TypeAheadSearchModel model, out string error)
         {
             model.Role = _sanitizer.SanitizeString(model.Role);
             model.SearchInput = _sanitizer.SanitizeString(model.SearchInput);
-            if (!await _roleManager.RoleExistsAsync(model.Role))
+            if (! _roleManager.RoleExistsAsync(model.Role).Result)
             {
                 _errorLogService.LogError($"UserService - SearchUsers. Role doesn't exist: {model.Role}", userId);
+                error = $"Role {model.Role} doesn't exist for";
                 return null;
             }
             try
             {
-                List<IdentityUser> users = _userManager.GetUsersInRoleAsync(model.Role).Result.Where(n=>n.UserName.Contains(model.SearchInput)).ToList();
-                List<BaseUserVM> baseUsersList = users.ConvertIdentityUserListToBaseUserVMList();
+                IEnumerable<IdentityUser> users;
+                if (string.IsNullOrEmpty(model.SearchInput))
+                {
+                     users = _userManager.GetUsersInRoleAsync(model.Role).Result;
+                }
+                else
+                {
+                    users = _userManager.GetUsersInRoleAsync(model.Role).Result.Where(n => n.UserName.Contains(model.SearchInput));
+                }
+               
+                int usersCount = users.Count();
+                int extraResults = usersCount - 5;
+                List<BaseUserVM> baseUsersList = users.Take(5).ToList().ConvertIdentityUserListToBaseUserVMList(extraResults);
+                error = string.Empty;
                 return CheckIsActiveStatus(model.Role, baseUsersList);
             }
             catch (Exception x)
             {
                 _errorLogService.LogError($"UserService - SearchUsers {x.Message} {x.InnerException}" , userId);
+                error = "An internaval server error occured while trying to search users";
                 return null;
             }
         }
-
-        public async Task<List<BaseUserVM>> GetSupportersAsync()
-        {
-            try
-            {
-                List<BaseUserVM> baseUsersList =  _userManager.GetUsersInRoleAsync(Roles.Supporter.ToString()).Result.ToList().ConvertIdentityUserListToBaseUserVMList();
-                return await Task.FromResult(CheckIsActiveStatus(Roles.Supporter.ToString(), baseUsersList));
-            }
-            catch (Exception x)
-            {
-                _errorLogService.LogError($"UserService - SearchUsers {x.Message} {x.InnerException}", userId);
-                return null;
-            }        
-        }
-        
-        public TopEmployeesPerformance GetTopFiveTicketClosingStats()
+ 
+        private TopEmployeesPerformance GetTopFiveTicketClosingStats()
        {
             try
             {
@@ -206,21 +238,19 @@ namespace Services
 
                 if (performanceCountByUserName?.Any() == true)
                 {
-                    return new TopEmployeesPerformance()
+                    TopEmployeesPerformance top =  new ()
                     {
                         EmployeeStats = performanceCountByUserName,
                         MaxValue = performanceCountByUserName.GroupBy(p => p.TicketsClosed).OrderByDescending(p => p.Key).Select(p => p.Key).First()
                     };
-                }
-                return new TopEmployeesPerformance() { };
-
+                    return top;
+                }             
             }
             catch (Exception x)
             {
                 _errorLogService.LogError($"UserService - GetTopFiveTicketClosingStats {x.Message} {x.InnerException}", userId);
-                return null;
             }
- 
+            return new TopEmployeesPerformance() { };
         }
 
         private IEnumerable<Ticket> RemoveTicketsClosedByCustomers(List<Ticket> currentMonthClosedTickets)
@@ -243,33 +273,57 @@ namespace Services
             }
         }
 
-        public GeneralMonthlyStats GetGeneralMonthlyStats()
+        public GeneralMonthlyStats GetGeneralMonthlyStats(out string error)
         {
             int currentMonth = DateTime.Now.Month;
             int currentYear = DateTime.Now.Year;
             try
             {
-                return new GeneralMonthlyStats()
+
+                GeneralMonthlyStats stats = new()
                 {
                     TotalClosedTickets = TicketsRepository.Get(
                         t => t.Status == _ticketStatusConfig.Closed
                         && t.ClosingDate.Month == currentMonth && t.ClosingDate.Year == currentYear
                         ).Count(),
+
                     ClosedTicketsThatWereOpenThisMonth = TicketsRepository.Get(
                         t => t.Status == _ticketStatusConfig.Closed
                             && t.ClosingDate.Month == currentMonth && t.ClosingDate.Year == currentYear
                             && t.OpenDate.Month == currentMonth && t.OpenDate.Year == currentYear
                         ).Count(),
+
                     TotalReplies = RepliesRepository.Get(r => r.Date.Month == currentMonth && r.Date.Year == currentYear).Count(),
-                    OpenedTickets = TicketsRepository.Get(t => t.OpenDate.Month == currentMonth && t.OpenDate.Year == currentYear).Count()
+                    OpenedTickets = TicketsRepository.Get(t => t.OpenDate.Month == currentMonth && t.OpenDate.Year == currentYear).Count(),
+                    TopPerformance = GetTopFiveTicketClosingStats()
                 };
+                error = string.Empty;
+                return stats;
             }
             catch (Exception x)
             {
                 _errorLogService.LogError($"UserService - GetGeneralMonthlyStats {x.Message} {x.InnerException}", userId);
+                error = "An internaval server error occured while trying to get general monthly stats";
                 return null;
             }
 
         }
+
+        //public List<BaseUserVM> GetSupporters(out string error)
+        //{
+        //    try
+        //    {
+        //        List<BaseUserVM> baseUsersList = _userManager.GetUsersInRoleAsync(Roles.Supporter.ToString()).Result.ToList().ConvertIdentityUserListToBaseUserVMList(0);
+        //        baseUsersList = CheckIsActiveStatus(Roles.Supporter.ToString(), baseUsersList);
+        //        error = string.Empty;
+        //        return baseUsersList;
+        //    }
+        //    catch (Exception x)
+        //    {
+        //        _errorLogService.LogError($"UserService - SearchUsers {x.Message} {x.InnerException}", userId);
+        //        error = "An error has occured while trying to get users";
+        //        return null;
+        //    }
+        //}
     }
 }

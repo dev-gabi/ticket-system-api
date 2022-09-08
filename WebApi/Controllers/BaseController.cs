@@ -33,6 +33,15 @@ namespace WebApi.Controllers
                 userRole = role.ToString();
             }
         }
+
+        protected IActionResult CreateHttpResponse<T>(T result, string error)
+        {
+            if (result != null && string.IsNullOrEmpty(error))
+            {
+                return Ok(result);
+            }
+            return Problem(detail: error);
+        }
         //public HttpResponseMessage Options()
         //{
         //    return new HttpResponseMessage { StatusCode = HttpStatusCode.OK };

@@ -115,11 +115,11 @@ namespace Services
                 IdentityUser user = model.ConvertToIdentityUser();
                 user.Email = AuthHelpers.GenerateCorporateEmail(user.UserName, _employeesSettingsConfig.EmailSuffix);
                 IdentityResult registerResult = null;
-                registerResult = _userManager.CreateAsync(user, AuthHelpers.GenerateRandomPassword()).Result;
+                registerResult = await _userManager.CreateAsync(user, AuthHelpers.GenerateRandomPassword());
                 await RegisterRole(model.Role, user);
 
-                Task<ApiResponse> success = CreateResetPasswordTokenAndSendMailToEmployeePersonalEmail(user, model.PersonalEmail);
-                if (success != null) return success.Result;
+                ApiResponse success = await CreateResetPasswordTokenAndSendMailToEmployeePersonalEmail(user, model.PersonalEmail);
+                if (success != null) return success;
                 return ResponseHelpers.ApiResponseError(registerResult.Errors.Select(e => e.Description).ToList());
             }
             catch (Exception x)
@@ -192,10 +192,10 @@ namespace Services
             try
             {
                 if (string.IsNullOrEmpty(employeePersonalEmail)) { return ResponseHelpers.ApiResponseError("email is null"); }
-                string userId = EmployeeRepository.GetOne(e => e.PersonalEmail == employeePersonalEmail).Id;
-                if (userId == null) { return ResponseHelpers.ApiResponseNotFound(); }
+                var employee = EmployeeRepository.GetOne(e => e.PersonalEmail == employeePersonalEmail);
+                if(employee == null) { return ResponseHelpers.ApiResponseNotFound(); }  
 
-                IdentityUser user = await _userManager.FindByIdAsync(userId);
+                IdentityUser user = await _userManager.FindByIdAsync(employee.Id);
                 Task<ApiResponse> success = CreateResetPasswordTokenAndSendMailToEmployeePersonalEmail(user, employeePersonalEmail);
                 if (success != null) return success.Result;
                 return ResponseHelpers.ApiResponseError("An error had occured while trying to send an email.");
@@ -227,6 +227,7 @@ namespace Services
         {
             model = _sanitizer.SanitizeLoginViewModel(model);
             IdentityUser user = await _userManager.FindByEmailAsync(model.Email);
+            if (user==null) { return ResponseHelpers.ApiResponseError("Email is not registered").ConvertToLoginManagerResponse(); }
             if (!user.EmailConfirmed) { return ResponseHelpers.ApiResponseError("Please confirm your email to log in").ConvertToLoginManagerResponse(); }
             LoginManagerResponse responseWithError = ResponseHelpers.ValidateLoginModel(model, _userManager, user as User);
             if (responseWithError != null) return responseWithError;

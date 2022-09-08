@@ -71,7 +71,7 @@ namespace Services.Helpers
 
             if (await _userManager.FindByEmailAsync(model.Email) != null)
             {
-                return ApiResponseError("This Email was already registered") as RegisterManagerResponse;
+                return ApiResponseError($"Email {model.Email} was already registered") as RegisterManagerResponse;
             }
             if (!ExtensionMethods.IsValidEmail(model.Email))
             {

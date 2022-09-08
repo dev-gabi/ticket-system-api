@@ -21,7 +21,7 @@ namespace WebApi.Controllers
     {
             
         private IEmployeeService _employeeService;
-        
+        private string error;
         public EmployeesController(UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager,
             GenericRepository<Employee> employeesRepository, GenericRepository<Customer> customerRepository,
             GenericRepository<Ticket> ticketsRepository, GenericRepository<Reply> repliesRepository, GenericRepository<ErrorLog> errorLogrepository,
@@ -33,70 +33,68 @@ namespace WebApi.Controllers
 
         [Authorize(new Roles[2] { Roles.Admin, Roles.Supporter })]
         [HttpPost("get-by-id")]
-        public EmployeeResponse GetEmployeeById(StringIdModel model)
+        public IActionResult GetEmployeeById(StringIdModel model)
         {
-            return _employeeService.GetEmployeeById(model.Id);
+            if (ModelState.IsValid) { 
+            
+                var result = _employeeService.GetEmployeeById(model.Id, out error);
+
+                return CreateHttpResponse(result, error);
+            }
+            return BadRequest(error: ModelState.GetModelStateError());
+        }
+
+        [Authorize(new Roles[2] { Roles.Admin, Roles.Supporter })]
+        [HttpPost("search-users")]
+        public IActionResult SearchUsers([Bind("SearchInput, Role")][FromBody] TypeAheadSearchModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                var result = _employeeService.SearchUsers(model, out error);
+
+                return CreateHttpResponse(result, error);
+            }
+            return BadRequest(error: ModelState.GetModelStateError());
+        }
+
+        [Authorize(new Roles[1] { Roles.Admin })]
+        [HttpGet("get-supporters")]
+        public IActionResult GetAllSupporters()
+        {
+            var result = _employeeService.GetSupporters(out error);
+
+            return CreateHttpResponse(result, error);
         }
 
         [Authorize(new Roles[1] { Roles.Admin })]
         [HttpPut("edit-supporter")]
-        public EmployeeResponse EditSupporter([Bind("Id, Name, Email, IsActive")] EmployeeEditVM vm)
-        {
-            return _employeeService.EditEmployeeDetails(vm);
-        }
-        [Authorize(new Roles[2] { Roles.Admin, Roles.Supporter })]
-        [HttpPost("search-users")]
-        public async Task<IActionResult> SearchUsers([Bind("SearchInput, Role")][FromBody] TypeAheadSearchModel model)
-        {
+        public IActionResult EditSupporter([Bind("Id, Name, Email, IsActive")] EmployeeEditVM vm)
+        {        
             if (ModelState.IsValid)
             {
-                if (string.IsNullOrEmpty(model.SearchInput))
-                {
-                    return BadRequest("search input is null");
-                }
-                var result = await _employeeService.SearchUsers(model);
+               var result =_employeeService.EditEmployeeDetails(vm, out error);
 
-                if (result != null)
-                    return Ok(result); ;
-
-                return BadRequest("could not fetch users");
+                return CreateHttpResponse(result, error);
             }
-            return BadRequest("An error occured while trying to fetch users");
+            return BadRequest(error: ModelState.GetModelStateError());
         }
-        [Authorize(new Roles[1] { Roles.Admin })]
-        [HttpGet("get-supporters")]
-        public async Task<IActionResult> GetAllSupporters()
-        {
-                var result = await _employeeService.GetSupportersAsync();
 
-                if (result != null)
-                    return Ok(result); ;
-
-                return BadRequest("could not fetch users");
-        }
-        [Authorize(new Roles[1] { Roles.Admin })]
-        [HttpGet("get-top-closing-tickets-stats")]
-        public  IActionResult GetTopClosingTicketsStats()
-        {
-            var result = _employeeService.GetTopFiveTicketClosingStats();
-
-            if (result != null)
-                return Ok(result); 
-
-            return BadRequest("could not fetch top closing tickets stats");
-        }
         [Authorize(new Roles[1] { Roles.Admin })]
         [HttpGet("get-general-monthly-stats")]
         public IActionResult GetGeneralMonthlyStats()
         {
-            var result = _employeeService.GetGeneralMonthlyStats();
+            var result = _employeeService.GetGeneralMonthlyStats(out error);
 
-            if (result != null)
-                return Ok(result); ;
-
-            return BadRequest("could not fetch monthly stats");
+            return CreateHttpResponse(result, error);
         }
-    }
-    
+        //deprecated - now a part of GetGeneralMonthlyStats response
+        //[Authorize(new Roles[1] { Roles.Admin })]
+        //[HttpGet("get-top-closing-tickets-stats")]
+        //public  IActionResult GetTopClosingTicketsStats()
+        //{
+        //    var result = _employeeService.GetTopFiveTicketClosingStats(out error);
 
+        //    return CreateHttpResponse(result, error);
+        //}
+    }
 }

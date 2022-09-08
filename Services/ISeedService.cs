@@ -229,11 +229,11 @@ namespace Services
 
         private Task<Ticket> CreateTicket(Customer customer, CreateTicketVM vm)
         {
-     
+            string error;
             Context.Items["Id"] = customer.Id;
             Context.Items["UserName"] = customer.UserName;
             InitTicketService();
-            TicketResponse res =  _ticketService.CreateAsync(vm).Result;
+            TicketResponse res =  _ticketService.CreateAsync(vm, out error);
             Ticket t = TicketsRepository.GetByID(res.Id);
             t.OpenDate = DateTime.Now;
             TicketsRepository.Update(t);

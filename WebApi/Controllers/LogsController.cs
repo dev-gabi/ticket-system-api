@@ -18,7 +18,7 @@ namespace WebApi.Controllers
     {
         private readonly IErrorLogService _errorLogService;
         private readonly IAuthLogService _authLogService;
-
+        private string error;
         public LogsController(UserManager<IdentityUser> userManager, IOptions<ConnectionsConfig> _connections, IAuthLogService authLogService)
         {
             _errorLogService = new ErrorLogService(userManager, _connections);
@@ -26,24 +26,17 @@ namespace WebApi.Controllers
         }
 
         [HttpGet("error-logs")]
-        public async Task<List<Error>> GetErrorLogsAsync()
+        public IActionResult GetErrorLogs()
         {
-            var result = await _errorLogService.GetErrorsAsync();
-            if (result!=null)
-            {
-                return result;
-            }
-            return null;
+            var result =  _errorLogService.GetErrors(out error);
+            return CreateHttpResponse(result, error);
+
         }
         [HttpGet("auth-logs")]
-        public async Task<List<Auth>> GetAuthLogsAsync()
+        public  IActionResult GetAuthLogsAsync()
         {
-            var result = await _authLogService.GetAuthLogs(userId);
-            if (result != null)
-            {
-                return result;
-            }
-            return null;
+            var result =  _authLogService.GetAuthLogs(userId, out error);
+            return CreateHttpResponse(result, error);
         }
     }
 }

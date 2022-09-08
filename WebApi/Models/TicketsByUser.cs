@@ -6,9 +6,11 @@ using System.Threading.Tasks;
 
 namespace WebApi.Models
 {
-    public class StringIdModel
+    public class TicketsByUser
     {
         [Required]
         public string Id { get; set; }
+        [Required, MaxLength(6,ErrorMessage ="Status length shoud be 6 chars max")]
+        public string Status { get; set; }
     }
 }

@@ -11,8 +11,11 @@ namespace Services.Models.Employees
     {
         [Required]
         public string Id { get; set; }
+        [EmailAddress]
         public string Email { get; set; }
+        [Required]
         public bool IsActive { get; set; }
+        [Required]
         public string Name { get; set; }
     }
 }

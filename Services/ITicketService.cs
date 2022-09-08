@@ -19,19 +19,18 @@ namespace Services
 {
     public interface ITicketService
     {
-        Task<TicketResponse> CreateAsync(CreateTicketVM vm);
-        Task<AddReplyResponse> AddReplyAsync(ReplyVM vm);
-        ApiResponse Close(int id);
-        TicketResponse[] GetTicketsByUserId(string id, bool onlyOpenTickets);
-        Task<TicketResponse[]> GetAll();
-        Task<TicketResponse[]> GetOpenTickets();
+        TicketResponse CreateAsync(CreateTicketVM vm, out string error);
+        AddReplyResponse AddReply(ReplyVM vm, out string error);
+        TicketResponse Close(int id, out string error);
+        TicketResponse[] GetTicketsByUserId(string id, string status, out string error);
         string[] GetCategories();
-        Task<TicketResponse[]> SearchByContent(string searchInput);
-
+       // Task<TicketResponse[]> SearchByContent(string searchInput);
+        TicketResponse[] GetTickets(string status);
     }
 
-    public class TicketService :  ITicketService
+public class TicketService :  ITicketService
     {
+        enum Status {Open, Closed};
         internal GenericRepository<Ticket> TicketsRepository;
         internal GenericRepository<Reply> RepliesRepository;
         internal GenericRepository<ReplyImage> ReplyImageRepository;
@@ -69,29 +68,28 @@ namespace Services
             _userRole = userRole;
         }
 
-        public async Task<TicketResponse> CreateAsync(CreateTicketVM vm)
+        public  TicketResponse CreateAsync(CreateTicketVM vm, out string error)
         {
             try
             {
                 vm = _sanitizer.SanitizeCreateTicketViewModel(vm);
-
                 Ticket ticketEntity = SaveTicketAndGetEntity(vm);
                 ReplyVM replyVm = new ReplyVM() { Message = vm.Message, TicketId = ticketEntity.Id, Image = vm.Image };
                 Reply reply = SaveReplyToDBAsync(replyVm);
                 if (vm.Image != null)
                 {
                     reply.IsImageAttached = true;
-                    await SaveReplyImage(replyVm, reply);
+                    SaveReplyImage(replyVm, reply).Wait();
                 }
+                error = string.Empty;
                 return CreateTicketResponse(ticketEntity, reply);
             }
             catch (Exception e)
             {
                 _errorLogService.LogError("TicketService - CreateAsync: " + e.ToString(), _userId);
+                error = "An internal server error has occured while trying to create a ticket";
                 return null;
-            }
-
-       
+            }     
         }
 
         private TicketResponse CreateTicketResponse(Ticket ticketEntity, Reply reply)
@@ -135,7 +133,7 @@ namespace Services
 
         private async Task SaveReplyImage(ReplyVM vm, Reply reply)
         {
-            bool imagesSaved = await AddReplyImage(vm.Image, reply.Id, out ReplyImage replimage);
+            bool imagesSaved = await AddReplyImage(vm.Image, reply.Id, out ReplyImage replymage);
             if (imagesSaved)
             {
                 try
@@ -177,7 +175,7 @@ namespace Services
 
         }
 
-        public async Task<AddReplyResponse> AddReplyAsync(ReplyVM vm)
+        public AddReplyResponse AddReply(ReplyVM vm, out string error)
         {
             vm.Message = _sanitizer.SanitizeString(vm.Message);
             try
@@ -186,14 +184,16 @@ namespace Services
                 if (vm.Image != null)
                 {
                     r.IsImageAttached = true;
-                    await SaveReplyImage(vm, r);
+                    SaveReplyImage(vm, r).Wait();
                 }
+                error = string.Empty;
                 return r.ConvertToAddReplyResponse();
             }
             catch (Exception e)
             {
                 _errorLogService.LogError($"TicketService - SaveReplyToDBAsync: {e.Message} {e.InnerException}" , _userId);
-                return new AddReplyResponse() { Error = "An error has occured while trying to create a new reply" };
+                error = "An error has occured while trying to create a new reply";
+                return null;
             }
 
         }
@@ -213,7 +213,10 @@ namespace Services
                 ReplyImageRepository.Add(ri);
                 ReplyImageRepository.Save();
                 replyImage = ri;
-                return Task.FromResult(true);
+                if (File.Exists(ri.Path))
+                {
+                    return Task.FromResult(true);
+                }
             }
             catch (Exception e)
             {
@@ -223,11 +226,14 @@ namespace Services
             return Task.FromResult(false);
         }
 
-        public ApiResponse Close(int id)
+        public TicketResponse Close(int id, out string error)
         {
-            Ticket t = TicketsRepository.GetByID(id);
+            Ticket t = TicketsRepository.Get(t=> t.Id ==id, "Replies" ).FirstOrDefault();
             if (t.Status == _ticketsStatus.Closed)
-                return ResponseHelpers.ApiResponseError($"Ticket {id} was already closed.");
+            {
+                error = $"Ticket {id} was already closed";
+                return null;
+            }
             try
             {
                 t.ClosingDate = DateTime.Now;
@@ -235,64 +241,69 @@ namespace Services
                 t.ClosedByUser = _userId;
                 TicketsRepository.Update(t);
                 TicketsRepository.Save();
-                return ResponseHelpers.ApiResponseSuccess("Ticket is now closed");
+                error = string.Empty;
+                return t.ConvertToTicketResponse();
             }
             catch (Exception e)
             {
                 _errorLogService.LogError($"TicketService - Close: {e.Message} {e.InnerException}" , _userId);
-            }
-            return ResponseHelpers.ApiResponseError($"An error has occured while trying to close ticket: {id}");
+                error = $"An internal server error has occured while trying to close ticket {id}";
+                return null;
+            }      
         }
 
-        public TicketResponse[] GetTicketsByUserId(string id, bool onlyOpenTickets)
+        public TicketResponse[] GetTicketsByUserId(string id, string status, out string error)
         {
             id = _sanitizer.SanitizeString(id);
             if (string.IsNullOrEmpty(id))
-                throw new ArgumentNullException("Id is null");
+            {
+                error = "Id is null";
+                return null;
+            }
+
             try
             {
-                List<TicketResponse> tickets;
-                if (onlyOpenTickets)
+                Status enumValue;
+                TicketResponse[] tickets;
+                string customerName = CustomersRepository.GetByID(id).UserName;
+                if (Enum.TryParse(status, out enumValue))
                 {
-                    tickets = TicketsRepository.Get(t => t.CustomerId == id && t.Status == _ticketsStatus.Open, "Replies").ConvertToTicketResponseList(ReplyImageRepository);
+                    switch (enumValue)
+                    {
+                        case Status.Open:
+                            tickets = TicketsRepository.Get(t => t.CustomerId == id && t.Status == _ticketsStatus.Open, "Replies").ConvertToTicketResponseList(ReplyImageRepository).ToArray();
+                            break;
+                        case Status.Closed:
+                            tickets = TicketsRepository.Get(t => t.CustomerId == id && t.Status == _ticketsStatus.Closed, "Replies").ConvertToTicketResponseList(ReplyImageRepository).ToArray();
+                            break;
+                        default:
+                            throw new Exception("invalid status in GetTicketsByUserId");
+                    }
+
+                    tickets = GetCustomerNamesForTickets(tickets.GroupBy(t => t.Id).Select(t => t.First()).ToArray());
+                    error = string.Empty;
+                    return tickets;
                 }
-                else
-                {
-                    tickets = TicketsRepository.Get(t => t.CustomerId == id, "Replies").ConvertToTicketResponseList(ReplyImageRepository);
-                }
-                return tickets.ToArray();
             }
             catch (Exception e)
             {
                 _errorLogService.LogError($"TicketService - GetTicketsByUserId: {e.Message} {e.InnerException}", _userId);
-                return null;
             }
+            error = "Some thing wen wrong while trying to get user tickets";
+            return null;
         }
 
-        public Task<TicketResponse[]> GetAll()
+        public TicketResponse[] GetTickets(string status)
         {
             try
             {
-                TicketResponse[] tickets = TicketsRepository.Get(null, "Replies").ConvertToTicketResponseArray(ReplyImageRepository);
-                return Task.FromResult(GetCustomerNamesForTickets(tickets));
+                TicketResponse[] tickets = TicketsRepository.Get(t => t.Status == status, "Replies").ConvertToTicketResponseArray(ReplyImageRepository);
+                return  GetCustomerNamesForTickets(tickets) ;
+                   
             }
             catch (Exception e)
             {
-                _errorLogService.LogError($"TicketService -  GetAll: {e.Message} {e.InnerException}" , _userId);
-                return null;
-            }
-        }
-
-        public Task<TicketResponse[]> GetOpenTickets()
-        {
-            try
-            {
-                TicketResponse[] tickets = TicketsRepository.Get(t => t.Status == _ticketsStatus.Open, "Replies").ConvertToTicketResponseArray(ReplyImageRepository);
-                return Task.FromResult(GetCustomerNamesForTickets(tickets));
-            }
-            catch (Exception e)
-            {
-                _errorLogService.LogError($"TicketService -  GetOpenTickets: {e.Message} {e.InnerException}", _userId);
+                _errorLogService.LogError($"TicketService -  GetTickets: {e.Message} {e.InnerException}", _userId);
                 return null;
             }
         }
@@ -317,72 +328,99 @@ namespace Services
             return categoryList.ToArray();
         }
 
-        public Task<TicketResponse[]> SearchByContent(string searchInput)
-        {
-            searchInput = _sanitizer.SanitizeString(searchInput);
-            if (string.IsNullOrEmpty(searchInput)) { throw new ArgumentNullException("search input is null"); }
-            try
-            {
-            IEnumerable<TicketResponse> titleContainingSearchInput = GetTicketsByTitleContent(searchInput);
-            IEnumerable<TicketResponse> repliesContainingSearchInput = GetTicketsByRepliesContent(searchInput);
-            IEnumerable<TicketResponse> resultList = (titleContainingSearchInput ?? Enumerable.Empty<TicketResponse>()).Concat(repliesContainingSearchInput ?? Enumerable.Empty<TicketResponse>());
-            
-            return Task.FromResult(GetCustomerNamesForTickets(resultList.GroupBy(t=>t.Id).Select(t=>t.First()).ToArray()));
-            }
-            catch (Exception e)
-            {
-                _errorLogService.LogError($"TicketService -  SearchByContent: {e.Message} {e.InnerException}", _userId);
-                return null;
-            }
-        }
+        //private IEnumerable<Ticket> GetTicketsByReplies(IEnumerable<Reply> replies)
+        //{   
+        //    if (_userRole == Roles.Customer.ToString())
+        //    {  
+        //        foreach (var reply in replies)
+        //        {
+        //            string userIdOfInitialReplyOfTicket = TicketsRepository.Get(t => t.Id == reply.TicketId, "Replies").FirstOrDefault().Replies.First().UserId;
+        //            if (reply.UserId == _userId)
+        //                {
+        //                    yield return TicketsRepository.Get(t => t.Id == reply.TicketId, "Replies").FirstOrDefault();
+        //                }
+        //        }
+        //    }
+        //    else
+        //    {
+        //        foreach (var reply in replies)
+        //        {
+        //            yield return TicketsRepository.Get(t=>t.Id == reply.TicketId, "Replies").FirstOrDefault();
+        //        }
+        //    }
 
-        private IEnumerable<TicketResponse> GetTicketsByRepliesContent(string searchInput)
-        {
-            IEnumerable<Ticket> tickets = GetTicketsByReplies(RepliesRepository.Get(r => r.Message.Contains(searchInput)));
-            return tickets.ConvertToTicketResponseArray(ReplyImageRepository);
-        }
+        //}
 
-        private IEnumerable<Ticket> GetTicketsByReplies(IEnumerable<Reply> replies)
-        {   
-            if (_userRole == Roles.Customer.ToString())
-            {  
-                foreach (var reply in replies)
-                {
-                    string userIdOfInitialReplyOfTicket = TicketsRepository.Get(t => t.Id == reply.TicketId, "Replies").FirstOrDefault().Replies.First().UserId;
-                    if (reply.UserId == _userId)
-                        {
-                            yield return TicketsRepository.Get(t => t.Id == reply.TicketId, "Replies").FirstOrDefault();
-                        }
-                }
-            }
-            else
-            {
-                foreach (var reply in replies)
-                {
-                    yield return TicketsRepository.Get(t=>t.Id == reply.TicketId, "Replies").FirstOrDefault();
-                }
-            }
 
-        }
+        //public Task<TicketResponse[]> SearchByContent(string searchInput)
+        //{
+        //    searchInput = _sanitizer.SanitizeString(searchInput);
+        //    if (string.IsNullOrEmpty(searchInput)) { throw new ArgumentNullException("search input is null"); }
+        //    try
+        //    {
+        //        IEnumerable<TicketResponse> titleContainingSearchInput = GetTicketsByTitleContent(searchInput);
+        //        IEnumerable<TicketResponse> repliesContainingSearchInput = GetTicketsByRepliesContent(searchInput);
+        //        IEnumerable<TicketResponse> resultList = (titleContainingSearchInput ?? Enumerable.Empty<TicketResponse>()).Concat(repliesContainingSearchInput ?? Enumerable.Empty<TicketResponse>());
 
-        private IEnumerable<TicketResponse> GetTicketsByTitleContent(string searchInput)
-        {
-            if(_userRole == Roles.Customer.ToString())
-            {
-                foreach (var item in TicketsRepository.Get(t => t.Title.Contains(searchInput) && t.CustomerId == _userId, "Replies").ConvertToTicketResponseArray(ReplyImageRepository))
-                {
-                    yield return item;
-                }
-            }
-            else
-            {
-                foreach (var item in TicketsRepository.Get(t => t.Title.Contains(searchInput), "Replies").ConvertToTicketResponseArray(ReplyImageRepository))
-                {
-                    yield return item;
-                }
-            }
+        //        return Task.FromResult(GetCustomerNamesForTickets(resultList.GroupBy(t => t.Id).Select(t => t.First()).ToArray()));
+        //    }
+        //    catch (Exception e)
+        //    {
+        //        _errorLogService.LogError($"TicketService -  SearchByContent: {e.Message} {e.InnerException}", _userId);
+        //        return null;
+        //    }
+        //}
+        //private IEnumerable<TicketResponse> GetTicketsByRepliesContent(string searchInput)
+        //{
+        //    IEnumerable<Ticket> tickets = GetTicketsByReplies(RepliesRepository.Get(r => r.Message.Contains(searchInput)));
+        //    return tickets.ConvertToTicketResponseArray(ReplyImageRepository);
+        //}
+        //private IEnumerable<TicketResponse> GetTicketsByTitleContent(string searchInput)
+        //{
+        //    if (_userRole == Roles.Customer.ToString())
+        //    {
+        //        foreach (var item in TicketsRepository.Get(t => t.Title.Contains(searchInput) && t.CustomerId == _userId, "Replies").ConvertToTicketResponseArray(ReplyImageRepository))
+        //        {
+        //            yield return item;
+        //        }
+        //    }
+        //    else
+        //    {
+        //        foreach (var item in TicketsRepository.Get(t => t.Title.Contains(searchInput), "Replies").ConvertToTicketResponseArray(ReplyImageRepository))
+        //        {
+        //            yield return item;
+        //        }
+        //    }
 
-        }
+        //}
+
+        //public Task<TicketResponse[]> GetOpenTickets()
+        //{
+        //    try
+        //    {
+        //        TicketResponse[] tickets = TicketsRepository.Get(t => t.Status == _ticketsStatus.Open, "Replies").ConvertToTicketResponseArray(ReplyImageRepository);
+        //        return Task.FromResult(GetCustomerNamesForTickets(tickets));
+        //    }
+        //    catch (Exception e)
+        //    {
+        //        _errorLogService.LogError($"TicketService -  GetOpenTickets: {e.Message} {e.InnerException}", _userId);
+        //        return null;
+        //    }
+        //}
+
+        //public Task<TicketResponse[]> GetAll()
+        //{
+        //    try
+        //    {
+        //        TicketResponse[] tickets = TicketsRepository.Get(null, "Replies").ConvertToTicketResponseArray(ReplyImageRepository);
+        //        return Task.FromResult(GetCustomerNamesForTickets(tickets));
+        //    }
+        //    catch (Exception e)
+        //    {
+        //        _errorLogService.LogError($"TicketService -  GetAll: {e.Message} {e.InnerException}" , _userId);
+        //        return null;
+        //    }
+        //}
 
 
     }

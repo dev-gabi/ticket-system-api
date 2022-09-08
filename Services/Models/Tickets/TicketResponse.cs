@@ -15,5 +15,6 @@ namespace Services.Models.Tickets
         public DateTime OpenDate { get; set; }
         public DateTime ClosingDate { get; set; }
         public string ClosedByUser { get; set; }
+      //  public string Error { get; set; }
     }
 }

@@ -14,7 +14,7 @@ namespace Services.logs
     {
         void LogLogin(string userId, string details);
         void LogLogout(string userId, string details);
-        Task<List<Auth>> GetAuthLogs(string userId);
+        List<Auth> GetAuthLogs(string userId, out string error);
     }
     public class AuthLogService : IAuthLogService
     {
@@ -47,14 +47,23 @@ namespace Services.logs
 
         public void LogLogout(string userId, string details)
         {
-            AuthLog log = new AuthLog()
+            try
             {
-                Action = actions.Logout.ToString(),
-                Date = DateTime.UtcNow,
-                UserId = userId,
-                Details = details
-            };
-            SaveRecord(log);
+                AuthLog log = new AuthLog()
+                {
+                    Action = actions.Logout.ToString(),
+                    Date = DateTime.UtcNow,
+                    UserId = userId,
+                    Details = details
+                };
+                SaveRecord(log);
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+
         }
         private void SaveRecord(AuthLog log)
         {
@@ -71,15 +80,19 @@ namespace Services.logs
 
         }
 
-        public  Task<List<Auth>> GetAuthLogs(string userId)
+        public  List<Auth> GetAuthLogs(string userId, out string error)
         {
             try
             {
-                return Task.Run(()=> AuthLogRepository.Get().OrderByDescending(l => l.Date).ConvertToAuthEnumerable(_userManager).ToList());
+   
+                List<Auth> list = AuthLogRepository.Get().OrderByDescending(l => l.Date).ConvertToAuthEnumerable(_userManager).ToList();
+                error = string.Empty;
+                return list;
             }
             catch (Exception x)
             {
                 _errorLogService.LogError($"AuthLogService - SaveRecord {x.Message}, {x.InnerException}", userId);
+                error = "An internal server error occured while getting auth logs";
                 return null;
             }
         }

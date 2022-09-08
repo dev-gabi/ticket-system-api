@@ -15,6 +15,6 @@ namespace Services.Models.Employees
         public bool IsActive { get; set; }
         public DateTime RegistrationDate { get; set; }
         public IEnumerable<SupporterStats> Stats { get; set; }
-        public string Error { get; set; }
+       // public string Error { get; set; }
     }
 }

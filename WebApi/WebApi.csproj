@@ -6,6 +6,7 @@
     <UserSecretsId>e48f54b1-ab32-4adc-869d-0e44f8fcaf36</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="DataAnnotationsExtensions" Version="5.0.1.27" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="3.1.17" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="5.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="5.0.0">

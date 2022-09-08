@@ -1,9 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc.ModelBinding;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using System.Linq;
 
 namespace WebApi
 {
-    public static class ExtensionMethods
+    public static class ExtensionMethods 
     {
         public static string GetModelStateError(this ModelStateDictionary modelState)
         {
@@ -17,6 +18,7 @@ namespace WebApi
             }
             return errorMessage;
         }
+
 
     }
 }

@@ -16,7 +16,7 @@ namespace Services.logs
     public interface IErrorLogService
     {
         void LogError(string details, string userId);
-        Task<List<Error>> GetErrorsAsync();
+        List<Error> GetErrors(out string error);
     }
     public class ErrorLogService : IErrorLogService
     {
@@ -49,16 +49,24 @@ namespace Services.logs
 
             }
         }
-        public async Task<List<Error>> GetErrorsAsync()
+        public  List<Error> GetErrors(out string error)
         {
-            using (TicketsContext context = new TicketsContext(GetOptionsbuilder().Options))
+            try
             {
-                ErrorLogRepository = new GenericRepository<ErrorLog>(context);
-                return await Task.Run(() =>
-            {
-                return ErrorLogRepository.Get().ConvertToErrorEnumerable(_userManager).ToList();
-            });
+                using (TicketsContext context = new TicketsContext(GetOptionsbuilder().Options))
+                {
+                    ErrorLogRepository = new GenericRepository<ErrorLog>(context);
+
+                    List<Error> list = ErrorLogRepository.Get().ConvertToErrorEnumerable(_userManager).ToList();
+                    error = string.Empty;
+                    return list;
+                }
             }
+            catch (Exception)
+            {
+                error = "Internal error happend while getting error logs";
+                return null;
+            }         
         }
         private DbContextOptionsBuilder<TicketsContext>  GetOptionsbuilder()
         {

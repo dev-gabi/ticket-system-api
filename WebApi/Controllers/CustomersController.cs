@@ -13,36 +13,39 @@ namespace WebApi.Controllers
     public class CustomersController : BaseController
     {
         private readonly ICustomerService _customerService;
+        private string error;
         public CustomersController(ISanitizerService sanitizer, GenericRepository<Customer> customersRepository, IErrorLogService errorLogService)
         {
             _customerService = new CustomerService(sanitizer, customersRepository, errorLogService, this.userId);
         }
 
         [HttpGet]
-        [Route("api/Customers/{id}")]
-        public async Task<IActionResult> Get([FromRoute] string id)
+        [Route("api/customers/all")]
+        public IActionResult GetAll()
         {
-            var result = await _customerService.GetById(id);
+            var result = _customerService.GetAll(out error);
 
-            if(result!=null)
-                  return Ok(result); ;
+            return CreateHttpResponse(result, error);
+        }
+        [HttpGet]
+        [Route("api/Customers/{id}")]
+        public IActionResult GetById([FromRoute] string id)
+        {
+            var result =  _customerService.GetById(id, out error);
 
-            return BadRequest("customer not found");
+            return CreateHttpResponse(result, error);
         }
         [HttpPut]
-        [Route("api/Customers/put")]
-        public async Task<IActionResult> Put([FromBody] CustomerVM customer)
+        [Route("api/Customers")]
+        public IActionResult Put([FromBody] CustomerVM customer)
         {
             if (ModelState.IsValid)
             {
-                var result = await _customerService.Edit(customer);
+                var result =  _customerService.Edit(customer, out error);
 
-                if (result != null)
-                    return Ok(result); ;
-
-                return BadRequest("An error occured");
+                return CreateHttpResponse(result, error);
             }
-            return BadRequest("An error occured while trying to update customer details");
+            return BadRequest(error: ModelState.GetModelStateError());
         }
     }
 }

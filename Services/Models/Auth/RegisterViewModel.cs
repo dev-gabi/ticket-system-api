@@ -21,11 +21,13 @@ namespace Services.Models.Auth
         [Required]
         [RegularExpression("^(?=.*[0-9])(?=.*[a-z]).{6,30}$", ErrorMessage = "Password must contain at least one digit and one letter")]
         [StringLength(50, MinimumLength = 6)]
+
         public string Password { get; set; }
 
-        [Required]
-        [RegularExpression("^(?=.*[0-9])(?=.*[a-z]).{6,30}$", ErrorMessage = "Password confirmation must contain at least one digit and one letter")]
-        [StringLength(50, MinimumLength = 6)]
+      //  [Required]
+       // [RegularExpression("^(?=.*[0-9])(?=.*[a-z]).{6,30}$", ErrorMessage = "Password confirmation must contain at least one digit and one letter")]
+      //  [StringLength(50, MinimumLength = 6)]
+        [Compare(nameof(Password), ErrorMessage = "Passwords don't match")]
         public string ConfirmPassword { get; set; }
 
         [StringLength(10)]

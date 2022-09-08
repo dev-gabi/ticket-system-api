@@ -2,15 +2,19 @@
 using Entities;
 using services.Enums;
 using Services.logs;
+using Services.Models;
 using Services.Models.Customers;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 namespace Services
 {
     public interface ICustomerService
     {
-        Task<CustomerVM> GetById(string id);
-        Task<CustomerVM> Edit(CustomerVM customer);
+        IEnumerable<CustomerVM> GetAll(out string error);
+        CustomerVM GetById(string id, out string error);
+        CustomerVM Edit(CustomerVM customer, out string error);
     }
 
     public class CustomerService : ICustomerService
@@ -29,19 +33,44 @@ namespace Services
             _userId = userId;
         }
 
-        public Task<CustomerVM> GetById(string id)
+        public IEnumerable<CustomerVM> GetAll(out string error)
+        {
+            try
+            {
+                error = string.Empty;
+                return _customersRepository.Get().ToList().ConvertToCustomerVMList(Roles.Customer.ToString());
+            }
+            catch (Exception x)
+            {
+            _errorLogService.LogError($"CustomerService - GetAll: {x.Message} {x.InnerException}", _userId);
+            error = "An error occured while getting all customers";
+            return null;
+            }
+        }
+        public CustomerVM GetById(string id, out string error)
         {
             if (string.IsNullOrEmpty(id))
             {
                 _errorLogService.LogError("CustomerService - GetById: id is null", _userId);
+                error = $"customer with id: {id} doesn't exist";
                 return null;
             }
-            id = _sanitizer.SanitizeString(id);
-            return Task.FromResult(
-              _customersRepository.GetByID(id).ConvertToCustomerVM(Roles.Customer.ToString())                
-                );
+            try
+            {
+                id = _sanitizer.SanitizeString(id);
+                error = string.Empty;
+                return _customersRepository.GetByID(id).ConvertToCustomerVM(Roles.Customer.ToString());
+            }
+            catch (Exception x)
+            {
+                _errorLogService.LogError($"CustomerService - GetAll: {x.Message} {x.InnerException}", _userId);
+                error = $"An error occured while getting customer by id {id}";
+                return null;
+            }
+                        
         }
-        public Task<CustomerVM> Edit(CustomerVM updatedCustomer)
+
+        public CustomerVM Edit(CustomerVM updatedCustomer, out string error)
         {
             updatedCustomer = _sanitizer.SanitizeCustomerVM(updatedCustomer);
             try
@@ -50,12 +79,13 @@ namespace Services
                 
                 _customersRepository.Update(UpdateEntityProps(dbEntity, updatedCustomer));
                 _customersRepository.Save();
-
-                return Task.FromResult(dbEntity.ConvertToCustomerVM(Roles.Customer.ToString()));
+                error = string.Empty;
+                return dbEntity.ConvertToCustomerVM(Roles.Customer.ToString());
             }
             catch (Exception x)
             {
                 _errorLogService.LogError($"CustomerService - GetById: {x.Message} {x.InnerException}", _userId);
+                error = $"An error occured while updating customer {updatedCustomer.Id}";
                 return null;
             }
         }
@@ -71,7 +101,5 @@ namespace Services
 
             return dbEntity;
         }
-
-
     }
 }

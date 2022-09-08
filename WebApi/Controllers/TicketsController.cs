@@ -30,6 +30,7 @@ namespace WebApi.Controllers
         private readonly TicketCategoriesConfig _categories;
         internal IWebHostEnvironment _env;
         private ITicketService _ticketService;
+        private string error;
 
         public TicketsController(GenericRepository<Ticket> ticketsRepository, GenericRepository<Reply> repliesRepository,
             GenericRepository<ReplyImage> replyImageRepository, GenericRepository<Customer> customerRepository, GenericRepository<ErrorLog> errorLogRepository,
@@ -57,97 +58,96 @@ namespace WebApi.Controllers
 
         [HttpPost]
         [Route("api/tickets/create")]
-        public async Task<TicketResponse> Create([Bind("Title, Message, Image, Category")][FromForm] CreateTicketVM vm)
+        public IActionResult Create([Bind("Title, Message, Image, Category")][FromForm] CreateTicketVM vm)
         {
             if (ModelState.IsValid)
             {
                 InitTicketService();
-                var result = await _ticketService.CreateAsync(vm);
-                if (result != null)
-                    return result;
+                var result =  _ticketService.CreateAsync(vm, out error);
+                return CreateHttpResponse(result, error);
             }
-            return new TicketResponse() { };
+            return BadRequest(error:  ModelState.GetModelStateError());
         }
 
         [HttpPut]
         [Route("api/tickets/close")]
         public IActionResult Close([FromBody] IntIdModel model)
-        {
-            InitTicketService();
-            var response = _ticketService.Close(model.Id);
-            if (response != null)
-                return Ok(response);
+        {   
+            if (ModelState.IsValid)
+            {
+                InitTicketService();
+                var result = _ticketService.Close(model.Id, out error);
+                return CreateHttpResponse(result, error);
+            }
+            return BadRequest(error:  ModelState.GetModelStateError());
 
-            return BadRequest($"An error occured while trying to close ticket {model.Id}");
         }
 
         [HttpPost]
         [Route("api/tickets/add-reply")]
-        public async Task<AddReplyResponse> AddReply([Bind("Message, Image, TicketId, IsInnerReply")][FromForm] ReplyVM vm)
-        {
-            InitTicketService();
+        public IActionResult AddReply([Bind("Message, TicketId, IsInnerReply, Image")][FromForm] ReplyVM vm)
+        {     
             if (ModelState.IsValid)
             {
-                AddReplyResponse response = await _ticketService.AddReplyAsync(vm);
-                if (response != null)
-                    return response;
+                InitTicketService();
+                var result = _ticketService.AddReply(vm, out error);
+                return CreateHttpResponse(result, error);
             }
-            return new AddReplyResponse() { Error = "An error occured while trying to add a ticket reply" };
+            return BadRequest(error: ModelState.GetModelStateError());
         }
-
 
         [HttpPost]
-        [Route("api/tickets/get-all-by-user-id")]
-        public TicketResponse[] GetAllByUserId([FromBody] StringIdModel model)
+        [Route("api/tickets/get-by-user-id")]
+        public IActionResult GetTicketsByUserId([Bind("Id")][FromBody] TicketsByUser model)
         {
-            InitTicketService();
-            return _ticketService.GetTicketsByUserId(model.Id, false);
-        }
-        [HttpPost]
-        [Route("api/tickets/get-open-tickets-by-user-id")]
-        public TicketResponse[] GetOpenTicketsByUserId([FromBody] StringIdModel model)
-        {
-            InitTicketService();
-            return _ticketService.GetTicketsByUserId(model.Id, true);
-        }
-
-        [Authorize(new Roles[2] { Roles.Admin, Roles.Supporter })]
-        [HttpGet]
-        [Route("api/tickets/get-all")]
-        public async Task<TicketResponse[]> GetAll()
-        {
-            InitTicketService();
-            return await _ticketService.GetAll();
-        }
-
-        [Authorize(new Roles[2] { Roles.Admin, Roles.Supporter })]
-        [HttpGet]
-        [Route("api/tickets/get-open-tickets")]
-        public async Task<TicketResponse[]> GetOpenTickets()
-        {
-            InitTicketService();
-            return await _ticketService.GetOpenTickets();
-        }
-
-
-        [HttpGet("api/tickets/get-categories")]
-        public string[] GetCategories()
-        {
-            InitTicketService();
-            return _ticketService.GetCategories();
-        }
-
-        [HttpPost("api/tickets/type-ahead-search")]
-        public async Task<TicketResponse[]> TypeAheadSearch( [FromBody] Services.Models.TypeAheadSearchModel model)
-        {
-            if (model.SearchInput!=null && model.SearchInput.Length>1)
+            if (ModelState.IsValid)
             {
                 InitTicketService();
-                return await _ticketService.SearchByContent(model.SearchInput);
+                var result =  _ticketService.GetTicketsByUserId(model.Id, model.Status, out error);
+                return CreateHttpResponse(result, error);
             }
+            return BadRequest(error: ModelState.GetModelStateError());
+        }
 
-            return null;
+        [Authorize(new Roles[2] { Roles.Admin, Roles.Supporter })]
+        [HttpPost]
+        [Route("api/tickets/get-tickets")]
+        public IActionResult GetTickets([Bind("Status")] [FromBody] StatusModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                InitTicketService();
+                var result =  _ticketService.GetTickets(model.Status);
+                return CreateHttpResponse(result, error);
             }
+            return BadRequest(error: ModelState.GetModelStateError());
+        }
+
+        [HttpGet("api/tickets/get-categories")]
+        public IActionResult GetCategories()
+        {
+            InitTicketService();
+
+            var response = _ticketService.GetCategories();
+            if (response != null)
+            {
+                return Ok(response);
+            }
+            return Problem();
+        }
+
+    //    [HttpPost("api/tickets/type-ahead-search")]
+    //    public async Task<TicketResponse[]> TypeAheadSearch( [FromBody] Services.Models.TypeAheadSearchModel model)
+    //   {
+    //        if (model.SearchInput!=null && model.SearchInput.Length>1)
+    //        {
+    //            InitTicketService();
+    //            return await _ticketService.SearchByContent(model.SearchInput);
+    //        }
+
+    //        return null;
+    //        }
+
     }
 }
 
