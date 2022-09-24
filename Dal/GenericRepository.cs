@@ -33,29 +33,30 @@ namespace Dal
                 (new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
             {
                 query = query.Include(includeProperty);
+
             }
 
             return query.ToList();
-
         }
-    //    public virtual IQueryable<TEntity> GetIQueryable(
-    //Expression<Func<TEntity, bool>> filter = null,
-    //string includeProperties = "")
-    //    {
-    //        IQueryable<TEntity> query = dbSet;
 
-    //        if (filter != null)
-    //        {
-    //            query = query.Where(filter);
-    //        }
+        //    public virtual IQueryable<TEntity> GetIQueryable(
+        //Expression<Func<TEntity, bool>> filter = null,
+        //string includeProperties = "")
+        //    {
+        //        IQueryable<TEntity> query = dbSet;
 
-    //        foreach (var includeProperty in includeProperties.Split
-    //            (new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
-    //        {
-    //            query = query.Include(includeProperty);
-    //        }
-    //        return query;
-    //    }
+        //        if (filter != null)
+        //        {
+        //            query = query.Where(filter);
+        //        }
+
+        //        foreach (var includeProperty in includeProperties.Split
+        //            (new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+        //        {
+        //            query = query.Include(includeProperty);
+        //        }
+        //        return query;
+        //    }
 
 
         public virtual TEntity GetOne(Expression<Func<TEntity, bool>> filter = null)

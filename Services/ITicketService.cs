@@ -229,6 +229,8 @@ public class TicketService :  ITicketService
         public TicketResponse Close(int id, out string error)
         {
             Ticket t = TicketsRepository.Get(t=> t.Id ==id, "Replies" ).FirstOrDefault();
+
+            if(t == null) { throw new Exception($"Ticket with id {id} doesn't exist"); }
             if (t.Status == _ticketsStatus.Closed)
             {
                 error = $"Ticket {id} was already closed";
@@ -236,13 +238,18 @@ public class TicketService :  ITicketService
             }
             try
             {
+                Task<IEnumerable<Reply>> getReplyImages = GetReplyImages(t.Replies);
                 t.ClosingDate = DateTime.Now;
                 t.Status = _ticketsStatus.Closed;
-                t.ClosedByUser = _userId;
+                t.ClosedByUser = _userId;            
                 TicketsRepository.Update(t);
                 TicketsRepository.Save();
                 error = string.Empty;
-                return t.ConvertToTicketResponse();
+                getReplyImages.Wait();
+                t.Replies = getReplyImages.Result.ToList();
+                TicketResponse response = t.ConvertToTicketResponse();
+                response.CustomerName = GetCustomerName(response.CustomerId);
+                return response;
             }
             catch (Exception e)
             {
@@ -250,6 +257,20 @@ public class TicketService :  ITicketService
                 error = $"An internal server error has occured while trying to close ticket {id}";
                 return null;
             }      
+        }
+
+        private Task<IEnumerable<Reply>> GetReplyImages(ICollection<Reply> replies)
+        {
+               return Task.FromResult(YieldReplyImages(replies.ToArray()));
+        }
+
+        private IEnumerable<Reply> YieldReplyImages(Reply[] replies)
+        {
+            for(var i=0; i< replies.Length; i++)
+            {
+                replies[i].Image = ReplyImageRepository.GetOne(image => image.ReplyId == replies[i].Id);
+                yield return replies[i];
+            }
         }
 
         public TicketResponse[] GetTicketsByUserId(string id, string status, out string error)
@@ -289,7 +310,7 @@ public class TicketService :  ITicketService
             {
                 _errorLogService.LogError($"TicketService - GetTicketsByUserId: {e.Message} {e.InnerException}", _userId);
             }
-            error = "Some thing wen wrong while trying to get user tickets";
+            error = "Some thing went wrong while trying to get user tickets";
             return null;
         }
 
@@ -313,11 +334,16 @@ public class TicketService :  ITicketService
             if (tickets == null) { return null; }
             for (int i = 0; i < tickets.Length; i++)
             {
-                tickets[i].CustomerName = CustomersRepository.GetByID(tickets[i].CustomerId).UserName;
+                //   tickets[i].CustomerName = CustomersRepository.GetByID(tickets[i].CustomerId).UserName;
+                tickets[i].CustomerName = GetCustomerName(tickets[i].CustomerId);
             }
             return tickets;
         }
 
+        private string GetCustomerName(string customerId)
+        {
+            return CustomersRepository.GetByID(customerId).UserName;
+        }
         public string[] GetCategories()
         {
             List<string> categoryList = new List<string>();
