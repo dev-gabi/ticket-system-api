@@ -318,9 +318,9 @@ public class TicketService :  ITicketService
         {
             try
             {
-                TicketResponse[] tickets = TicketsRepository.Get(t => t.Status == status, "Replies").ConvertToTicketResponseArray(ReplyImageRepository);
-                return  GetCustomerNamesForTickets(tickets) ;
-                   
+                TicketResponse[]  tickets = TicketsRepository.Get(t => t.Status == status , "Replies").ConvertToTicketResponseArray(ReplyImageRepository);
+                return GetCustomerNamesForTickets(tickets);
+
             }
             catch (Exception e)
             {

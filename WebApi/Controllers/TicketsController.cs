@@ -98,7 +98,7 @@ namespace WebApi.Controllers
 
         [HttpPost]
         [Route("api/tickets/get-by-user-id")]
-        public IActionResult GetTicketsByUserId([Bind("Id")][FromBody] TicketsByUser model)
+        public IActionResult GetTicketsByUserId([Bind("Id, Status")][FromBody] TicketsByUser model)
         {
             if (ModelState.IsValid)
             {
