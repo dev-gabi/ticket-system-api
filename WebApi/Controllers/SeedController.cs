@@ -30,11 +30,5 @@ namespace WebApi.Controllers
             _seed.InitTickets(context);
             return Ok();
         }
-        //[HttpGet("users")]
-        //public IActionResult SeedUsers()
-        //{
-        //    _seed.SeedDummyUsersAsync();
-        //    return Ok();
-        //}
     }
 }

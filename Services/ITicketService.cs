@@ -334,7 +334,6 @@ public class TicketService :  ITicketService
             if (tickets == null) { return null; }
             for (int i = 0; i < tickets.Length; i++)
             {
-                //   tickets[i].CustomerName = CustomersRepository.GetByID(tickets[i].CustomerId).UserName;
                 tickets[i].CustomerName = GetCustomerName(tickets[i].CustomerId);
             }
             return tickets;

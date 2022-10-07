@@ -9,7 +9,6 @@ using Services.logs;
 using Services.Models.Tickets;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -82,7 +81,7 @@ namespace Services
             }
             if (!CheckForCurrentMonthData())
             {
-               return CreateTickets();
+                return CreateTickets();
             }
             return Task.CompletedTask;
         }
@@ -108,49 +107,35 @@ namespace Services
                 Ticket lastTicket = null;
                 bool isfirstTicket = false;
                 bool islastTicket = false;
+                List<Reply> newReplies = new();
+
                 for (int i = 0; i < customers.Count(); i++)
                 {
-                    CreateTicketVM one = new() { Title = $"Button #{i + 1} not working", Message = $"When I click the {i + 1}st button nothing happens on the server. ", Category = "Back-End" };
-                    Ticket ticket1 = await CreateTicket(customers[i], one);
-                    Reply oneInitialReply = ticket1.Replies.First();
-                    oneInitialReply.Date = DateTime.Now;
-                    oneInitialReply.IsImageAttached = true;
-                    RepliesRepository.Update(oneInitialReply);
-                    RepliesRepository.Save();
+                    Ticket ticket1 = await CreateFirstTicket(i, customers);
+                    newReplies.Add(ticket1.Replies.First());
                     if (!isfirstTicket )
                     {
                         firstTicket = ticket1;
                         isfirstTicket = true;
                     }
-                    CreateTicketVM two = new() { Title = $"title on page #{i + 1} is not visible", Message = $"When I open page {i + 1} the title is not visible. ", Category = "Front-End" };
-                    Ticket ticket2 = await CreateTicket(customers[i], two);
-                    Reply twoInitialReply = ticket2.Replies.First();
-                    twoInitialReply.Date = DateTime.Now;
-                    twoInitialReply.IsImageAttached = true;
-                    RepliesRepository.Update(twoInitialReply);
-                    RepliesRepository.Save();
-
+                    Ticket ticket2 = await CreateSecondTicket(i, customers);
+                    newReplies.Add(ticket2.Replies.First());
                     ReplyImageRepository.Add(new ReplyImage()
                     {
-                        ReplyId = twoInitialReply.Id,
+                        ReplyId = ticket2.Replies.First().Id,
                         Path = Path.Combine(_directories.ReplyImagesAssets, "web-page.jpg")
                     });
                     ReplyImageRepository.Save();
 
-                    CreateTicketVM three = new() { Title = $"Computer #{i + 1} not working", Message = $"the screen of computer {i + 1} is black. ", Category = "Other" };
-                    Ticket ticket3 = await CreateTicket(customers[i], three);
-                    Reply threeInitialReply = ticket3.Replies.First();
-                    threeInitialReply.Date = DateTime.Now;
-                    threeInitialReply.IsImageAttached = true;
-                    RepliesRepository.Update(threeInitialReply);
-                    RepliesRepository.Save();
+                    Ticket ticket3 = await CreateThirdTicket(i, customers);
+                    newReplies.Add(ticket3.Replies.First());
                     if (!islastTicket)
                     {
                         lastTicket = ticket3;
                         islastTicket = true;
                     }
                 }
-                CreateSupportReplies().Wait();
+                CreateSupportReplies(newReplies).Wait();
                 CloseExampleTicket(firstTicket, DateTime.Now.AddHours(1), EmployeesRepository.GetOne(e=>e.UserName == Supporters[0]).Id).Wait();
                 CloseExampleTicket(lastTicket, DateTime.Now.AddHours(2), EmployeesRepository.GetOne(e => e.UserName == Supporters[1]).Id).Wait();
                 await createDummyException;
@@ -160,21 +145,53 @@ namespace Services
             {
                 return false;
             }
-
         }
 
-        private Task CreateSupportReplies()
+        private async Task<Ticket> CreateFirstTicket(int i, Customer[] customers)
         {
+            CreateTicketVM one = new() { Title = $"Button #{i + 1} not working", Message = $"When I click the {i + 1}st button nothing happens on the server. ", Category = "Back-End" };
+            Ticket ticket1 = await CreateTicket(customers[i], one);
+            Reply oneInitialReply = ticket1.Replies.First();
+            oneInitialReply.Date = DateTime.Now.AddHours(-1);
+            oneInitialReply.IsImageAttached = false;
+            RepliesRepository.Update(oneInitialReply);
+            RepliesRepository.Save();
+            return ticket1;
+        }
 
-            List<Ticket> tickets = TicketsRepository.Get(null, "Replies").ToList();
-            tickets.ForEach(t =>
+        private async Task<Ticket> CreateSecondTicket(int i, Customer[] customers)
+        {
+            CreateTicketVM two = new() { Title = $"title on page #{i + 1} is not visible", Message = $"When I open page {i + 1} the title is not visible. ", Category = "Front-End" };
+            Ticket ticket2 = await CreateTicket(customers[i], two);
+            Reply twoInitialReply = ticket2.Replies.First();
+            twoInitialReply.Date = DateTime.Now.AddHours(-2);
+            twoInitialReply.IsImageAttached = true;
+            RepliesRepository.Update(twoInitialReply);
+            RepliesRepository.Save();
+            return ticket2;
+        }
+
+        private async Task<Ticket> CreateThirdTicket(int i, Customer[] customers)
+        {
+            CreateTicketVM three = new() { Title = $"Computer #{i + 1} not working", Message = $"the screen of computer {i + 1} is black. ", Category = "Other" };
+            Ticket ticket3 = await CreateTicket(customers[i], three);
+            Reply threeInitialReply = ticket3.Replies.First();
+            threeInitialReply.Date = DateTime.Now.AddHours(-3);
+            threeInitialReply.IsImageAttached = false;
+            RepliesRepository.Update(threeInitialReply);
+            RepliesRepository.Save();
+            return ticket3;
+        }
+        private Task CreateSupportReplies(List<Reply> newReplies)
+        {
+            newReplies.ForEach(r =>
             {
-                if(!t.Replies.First().Message.Contains("the screen of computer"))
+                if(!r.Message.Contains("the screen of computer"))
                 {
                     RepliesRepository.Add(new Reply()
                     {
-                        Date = DateTime.Now.AddMinutes(5),
-                        TicketId = t.Id,
+                        Date = DateTime.Now.AddMinutes(-15),
+                        TicketId = r.TicketId,
                         IsImageAttached = false,
                         IsInnerReply = false,
                         Message = "Hello dear customer, This is an unexpected behevior. I am escalating your question to an Administrator",
@@ -185,8 +202,8 @@ namespace Services
 
                     RepliesRepository.Add(new Reply()
                     {
-                        Date = DateTime.Now.AddMinutes(15),
-                        TicketId = t.Id,
+                        Date = DateTime.Now.AddMinutes(-10),
+                        TicketId = r.TicketId,
                         IsImageAttached = false,
                         IsInnerReply = true,
                         Message = "Hi ed, please help with this issue",
@@ -196,8 +213,8 @@ namespace Services
 
                     RepliesRepository.Add(new Reply()
                     {
-                        Date = DateTime.Now.AddMinutes(25),
-                        TicketId = t.Id,
+                        Date = DateTime.Now.AddMinutes(-1),
+                        TicketId = r.TicketId,
                         IsImageAttached = false,
                         IsInnerReply = false,
                         Message = "Hi customer, I have fixed the problem. please clear your browser's cache and try again.",
@@ -209,8 +226,8 @@ namespace Services
                 {
                     RepliesRepository.Add(new Reply()
                     {
-                        Date = DateTime.Now.AddHours(2).AddMinutes(8),
-                        TicketId = t.Id,
+                        Date = DateTime.Now.AddMinutes(-8),
+                        TicketId = r.TicketId,
                         IsImageAttached = false,
                         IsInnerReply = false,
                         Message = "Have you tried connecting the computer to the electricity?",
@@ -229,19 +246,16 @@ namespace Services
 
         private Task<Ticket> CreateTicket(Customer customer, CreateTicketVM vm)
         {
-            string error;
             Context.Items["Id"] = customer.Id;
             Context.Items["UserName"] = customer.UserName;
             InitTicketService();
-            TicketResponse res =  _ticketService.CreateAsync(vm, out error);
+            TicketResponse res =  _ticketService.CreateAsync(vm, out string error);
             Ticket t = TicketsRepository.GetByID(res.Id);
             t.OpenDate = DateTime.Now;
             TicketsRepository.Update(t);
             TicketsRepository.Save();
             return Task.FromResult(t);
         }
-
-     
 
         Task  CloseExampleTicket(Ticket ticket, DateTime closingDate, string supporterId)
         {
@@ -253,6 +267,7 @@ namespace Services
 
             return Task.CompletedTask;
         }
+
         public Task SeedDummyUsersAsync()
         {
             List<IdentityUser> dummyUsers = new()
