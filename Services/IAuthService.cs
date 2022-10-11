@@ -300,7 +300,10 @@ namespace Services
                 var result = await _userManager.ConfirmEmailAsync(user, AuthHelpers.DecodeToken(token));
 
                 if (result.Succeeded)
+                {
                     return ResponseHelpers.ApiResponseSuccess("Email confirmed successfully");
+                }                   
+
                 return ResponseHelpers.ApiResponseError(result.Errors.Select(e => e.Description).ToList());
             }
             catch (Exception x)
