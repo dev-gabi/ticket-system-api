@@ -32,7 +32,7 @@ namespace Services
         Task<ApiResponse> ResetPasswordAsync(ResetPasswordViewModel model);
         Task<bool> ValidateRegistrationTokenAsync(string token, string email);
         Task<ApiResponse> ResendEmailWithFreshTokenEmployeePreRegisterAsync(string employeePersonalEmail);
-        void Logout(string userId, Microsoft.AspNetCore.Http.HttpContext context);
+        void Logout(string userId, HttpContext context);
     }
 
     public class AuthService : IAuthService

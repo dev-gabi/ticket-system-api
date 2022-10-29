@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Entities
 {
-    public abstract class User : IdentityUser, IId
+    public abstract class User : IdentityUser, IGenericEntity
     {
 
         //[Required, MaxLength(100, ErrorMessage = "max length is 100 chars")]

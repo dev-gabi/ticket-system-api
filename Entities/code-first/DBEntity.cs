@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Entities
 {
-    public class DBEntity : IId
+    public class DBEntity : IGenericEntity
     {
         [Key]
         public int Id { get; set; }

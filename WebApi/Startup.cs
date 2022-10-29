@@ -42,16 +42,15 @@ namespace WebApi
 
                                       if (Env.IsDevelopment())
                                       {
-                                          builder.WithOrigins("http://localhost:4200")
-                                             .WithHeaders("Access-Control-Allow-Headers", "Access-Control-Allow-Origin", "Content-Type", "Authorization")
-                                            .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
+                                          builder.WithOrigins("http://localhost:4200");
                                       }
                                       else
                                       {
-                                          builder.WithOrigins("https://ticket-system.xyz")
-                                             .WithHeaders("Access-Control-Allow-Headers", "Access-Control-Allow-Origin", "Content-Type", "Authorization")
-                                            .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
+                                          builder.WithOrigins("https://ticket-system.xyz");
+
                                       }
+                                      builder.WithHeaders("Access-Control-Allow-Headers", "Access-Control-Allow-Origin", "Content-Type", "Authorization")
+                                            .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
                                   });
             });
 

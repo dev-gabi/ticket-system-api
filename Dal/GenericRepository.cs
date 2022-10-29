@@ -7,7 +7,7 @@ using System.Linq.Expressions;
 
 namespace Dal
 {
-    public class GenericRepository <TEntity> where TEntity : class, IId
+    public class GenericRepository <TEntity> where TEntity : class, IGenericEntity
     {
         internal TicketsContext context;
         internal DbSet<TEntity> dbSet;

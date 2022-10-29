@@ -5,7 +5,7 @@ using System.Text;
 
 namespace Entities
 {
-   public interface IId
+   public interface IGenericEntity
     {
 
     }
