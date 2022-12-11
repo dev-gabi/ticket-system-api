@@ -44,6 +44,7 @@ namespace Services
         private readonly IEmailService _emailService;
         private readonly ISanitizerService _sanitizer;
         private readonly IErrorLogService _errorLogService;
+
         private readonly JwtConfig _jwtConfig;
         private readonly DomainConfig _domainConfig;
         private readonly EmployeesSettingsConfig _employeesSettingsConfig;
@@ -51,7 +52,7 @@ namespace Services
         private const string anonymousMethod = "Anonymous method";
 
         public AuthService(UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager, GenericRepository<Employee> employeeRepository,
-     IEmailService emailService, ISanitizerService sanitizer, IErrorLogService errorLogService, IAuthLogService authLogService, 
+     IEmailService emailService, ISanitizerService sanitizer, IErrorLogService errorLogService, IAuthLogService authLogService,
     IOptions<JwtConfig> jwtConfig, IOptions<DomainConfig> domainConfig,
      IOptions<EmployeesSettingsConfig> employeesSettingConfig, string userId)
         {
@@ -66,14 +67,13 @@ namespace Services
             _domainConfig = domainConfig.Value;
             _employeesSettingsConfig = employeesSettingConfig.Value;
             _userId = userId;
-
         }
 
         public async Task<ApiResponse> CustomerRegisterAsync(CustomerRegisterViewModel model)
         {
             model = _sanitizer.SanitizeCustomerRegisterViewModel(model);
             ApiResponse responseWithError = ResponseHelpers.ValidateRegisterModel(model, _userManager).Result;
-            if (responseWithError != null) return responseWithError as RegisterManagerResponse;
+            if (responseWithError != null) return responseWithError;
 
             try
             {
@@ -86,14 +86,16 @@ namespace Services
                     await SendConfirmationEmailAsync(identityUser);
                     return ResponseHelpers.ApiResponseSuccess("A confirmation link was sent to your email.");
                 }
-                return ResponseHelpers.ApiResponseError(result.Errors.Select(e => e.Description).ToList()) as RegisterManagerResponse;
+                return ResponseHelpers.ApiResponseError(result.Errors.Select(e => e.Description).ToList());
             }
             catch (Exception x)
             {
                 _errorLogService.LogError($"AuthService - CustomerRegisterAsync: {x.Message} {x.InnerException}", anonymousMethod);
-                return ResponseHelpers.ApiResponseError("An Error Occured. please contact your web master") as RegisterManagerResponse;
+                return ResponseHelpers.ApiResponseError("An Error Occured. please contact your web master");
             }
         }
+
+
         /// <summary>
         /// Register a new user by creating a corporate email and send a link to his personal email to set a new password.
         /// </summary>

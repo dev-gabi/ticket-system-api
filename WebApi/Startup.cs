@@ -39,7 +39,6 @@ namespace WebApi
                 options.AddPolicy(CorsOrigins,
                                   builder =>
                                   {
-
                                       if (Env.IsDevelopment())
                                       {
                                           builder.WithOrigins("http://localhost:4200");

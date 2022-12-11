@@ -56,6 +56,7 @@ namespace Services
             };
         }
 
+
         public static User ConvertToIdentityUser(this EmployeeRegisterViewModel model)
         {
 
@@ -64,7 +65,6 @@ namespace Services
                 UserName = model.UserName,
                 Email = model.Email,
                 IsActive = true,
-               // PersonalEmail = model.PersonalEmail,
                 PhoneNumber = model.PhoneNumber,
                 RegistrationDate = DateTime.UtcNow
             };

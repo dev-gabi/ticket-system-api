@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Services.Models.Auth
 {
@@ -19,5 +14,8 @@ namespace Services.Models.Auth
         [StringLength(100)]
         [EmailAddress(ErrorMessage ="Email is not valid")]
         public string PersonalEmail { get; set; }
+
+     
+
     }
 }

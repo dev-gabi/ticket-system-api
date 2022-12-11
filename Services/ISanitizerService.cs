@@ -3,8 +3,7 @@ using Services.Models.Auth;
 using Services.Models.Customers;
 using Services.Models.Employees;
 using Services.Models.Tickets;
-using System;
-using System.Reflection;
+
 
 namespace Services
 {
@@ -105,5 +104,8 @@ namespace Services
             vm.Id = SanitizeString(vm.Id);
             return vm;
         }
+
+        //todo: dry - sanitize RegisterViewModel
+ 
     }
 }

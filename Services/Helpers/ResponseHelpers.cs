@@ -59,7 +59,7 @@ namespace Services.Helpers
             };
         }
 
-        public static async Task<ApiResponse> ValidateRegisterModel(RegisterViewModel model, Microsoft.AspNetCore.Identity.UserManager<Microsoft.AspNetCore.Identity.IdentityUser> _userManager)
+        public static async Task<ApiResponse> ValidateRegisterModel(RegisterViewModel model, UserManager<IdentityUser> _userManager)
         {
             if (model == null)
                 throw new NullReferenceException("Reigster Model is null");

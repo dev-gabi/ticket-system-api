@@ -1,13 +1,9 @@
-﻿using Entities;
-using Entities.configutation;
+﻿using Entities.configutation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using services.Enums;
 using Services.logs;
-using Services.Models.logs;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace WebApi.Controllers
 {
