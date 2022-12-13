@@ -6,7 +6,7 @@ using Services.Models;
 using Services.Models.Auth;
 using Services.Models.Customers;
 using Services.Models.Employees;
-using Services.Models.logs;
+using Services.Models.Logs;
 using Services.Models.Tickets;
 using System;
 using System.Collections.Generic;

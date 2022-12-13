@@ -1,7 +1,7 @@
 ﻿using Dal;
 using Entities;
 using Microsoft.AspNetCore.Identity;
-using Services.Models.logs;
+using Services.Models.Logs;
 using System;
 using System.Collections.Generic;
 using System.Linq;

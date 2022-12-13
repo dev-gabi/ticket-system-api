@@ -4,7 +4,7 @@ using Entities.configutation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using Services.Models.logs;
+using Services.Models.Logs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
