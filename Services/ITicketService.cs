@@ -19,7 +19,7 @@ namespace Services
 {
     public interface ITicketService
     {
-        TicketResponse CreateAsync(CreateTicketVM vm, out string error);
+        TicketResponse Create(CreateTicketVM vm, out string error);
         AddReplyResponse AddReply(ReplyVM vm, out string error);
         TicketResponse Close(int id, out string error);
         TicketResponse[] GetTicketsByUserId(string id, string status, out string error);
@@ -68,18 +68,18 @@ public class TicketService :  ITicketService
             _userRole = userRole;
         }
 
-        public  TicketResponse CreateAsync(CreateTicketVM vm, out string error)
+        public  TicketResponse Create(CreateTicketVM vm, out string error)
         {
             try
             {
                 vm = _sanitizer.SanitizeCreateTicketViewModel(vm);
                 Ticket ticketEntity = SaveTicketAndGetEntity(vm);
                 ReplyVM replyVm = new ReplyVM() { Message = vm.Message, TicketId = ticketEntity.Id, Image = vm.Image };
-                Reply reply = SaveReplyToDBAsync(replyVm);
+                Reply reply = SaveReplyToDB(replyVm);
                 if (vm.Image != null)
                 {
                     reply.IsImageAttached = true;
-                    SaveReplyImage(replyVm, reply).Wait();
+                    SaveReplyImageAsync(replyVm, reply).Wait();
                 }
                 error = string.Empty;
                 return CreateTicketResponse(ticketEntity, reply);
@@ -131,9 +131,9 @@ public class TicketService :  ITicketService
 
         }
 
-        private async Task SaveReplyImage(ReplyVM vm, Reply reply)
+        private async Task SaveReplyImageAsync(ReplyVM vm, Reply reply)
         {
-            bool imagesSaved = await AddReplyImage(vm.Image, reply.Id, out ReplyImage replymage);
+            bool imagesSaved = await AddReplyImage(vm.Image, reply.Id/*, out ReplyImage replymage*/);
             if (imagesSaved)
             {
                 try
@@ -149,7 +149,7 @@ public class TicketService :  ITicketService
             }
         }
 
-        Reply SaveReplyToDBAsync(ReplyVM vm)
+        Reply SaveReplyToDB(ReplyVM vm)
         {
             try
             {
@@ -169,7 +169,7 @@ public class TicketService :  ITicketService
             }
             catch (Exception e)
             {
-                _errorLogService.LogError($"TicketService - SaveReplyToDBAsync: {e.Message} {e.InnerException}", _userId);
+                _errorLogService.LogError($"TicketService - SaveReplyToDB: {e.Message} {e.InnerException}", _userId);
                 return null;
             }
 
@@ -180,11 +180,11 @@ public class TicketService :  ITicketService
             vm.Message = _sanitizer.SanitizeString(vm.Message);
             try
             {
-                Reply r =   SaveReplyToDBAsync(vm);
+                Reply r =   SaveReplyToDB(vm);
                 if (vm.Image != null)
                 {
                     r.IsImageAttached = true;
-                    SaveReplyImage(vm, r).Wait();
+                    SaveReplyImageAsync(vm, r).Wait();
                 }
                 error = string.Empty;
                 return r.ConvertToAddReplyResponse();
@@ -198,7 +198,7 @@ public class TicketService :  ITicketService
 
         }
 
-        private Task<bool> AddReplyImage(IFormFile image, int replyId, out ReplyImage replyImage)
+        private Task<bool> AddReplyImage(IFormFile image, int replyId/*, out ReplyImage replyImage*/)
         {
             try
             {
@@ -212,7 +212,7 @@ public class TicketService :  ITicketService
                 };
                 ReplyImageRepository.Add(ri);
                 ReplyImageRepository.Save();
-                replyImage = ri;
+              //  replyImage = ri;
                 if (File.Exists(ri.Path))
                 {
                     return Task.FromResult(true);
@@ -222,7 +222,7 @@ public class TicketService :  ITicketService
             {
                 _errorLogService.LogError($"TicketService - AddReplyImage: {e.Message} {e.InnerException}", _userId);
             }
-            replyImage = null;
+            //replyImage = null;
             return Task.FromResult(false);
         }
 

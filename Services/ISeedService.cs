@@ -249,7 +249,7 @@ namespace Services
             Context.Items["Id"] = customer.Id;
             Context.Items["UserName"] = customer.UserName;
             InitTicketService();
-            TicketResponse res =  _ticketService.CreateAsync(vm, out string error);
+            TicketResponse res =  _ticketService.Create(vm, out string error);
             Ticket t = TicketsRepository.GetByID(res.Id);
             t.OpenDate = DateTime.Now;
             TicketsRepository.Update(t);

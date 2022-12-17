@@ -233,6 +233,7 @@ namespace Services
             if (!user.EmailConfirmed) { return ResponseHelpers.ApiResponseError("Please confirm your email to log in").ConvertToLoginManagerResponse(); }
             LoginManagerResponse responseWithError = ResponseHelpers.ValidateLoginModel(model, _userManager, user as User);
             if (responseWithError != null) return responseWithError;
+
             try
             {
                 var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtConfig.EncKey));

@@ -63,7 +63,7 @@ namespace WebApi.Controllers
             if (ModelState.IsValid)
             {
                 InitTicketService();
-                var result =  _ticketService.CreateAsync(vm, out error);
+                var result =  _ticketService.Create(vm, out error);
                 return CreateHttpResponse(result, error);
             }
             return BadRequest(error:  ModelState.GetModelStateError());
